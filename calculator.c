@@ -1,34 +1,58 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
-#include <string.h>
 
 #define SIZE 100
 
-int evaluation(char operator, int op1, int op2){
+int stringLength(const char *string){
+    int length = 0;
+    while(string[length] != '\0'){
+        length++;
+    }
+    return length;
+}
+
+int isDigit(char character){
+    return(character >= '0' && character <= '9');
+}
+
+int isSpace(char character){
+    return(character == ' ' || character == '\t' || character == '\n');
+}
+
+int isOperator(char character){
+    char operators[] = "+-*/";
+    for(int i = 0; operators[i] != '\0'; i++){
+        if(operators[i] == character){
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int evaluateOperator(char operator, int operand1, int operand2){
     switch(operator){
         case '+':
-            return op1 + op2; 
+            return operand1 + operand2; 
         case '-': 
-            return op1 - op2;
+            return operand1 - operand2;
         case '*': 
-            return op1 * op2;
+            return operand1 * operand2;
         case '/':
-            if(op2== 0){ 
+            if(operand2 == 0){ 
                 printf("Error: Division by zero.");
-                exit(EXIT_FAILURE);
+                return -1;
             }
             else{
-                return op1 / op2; 
+                return operand1 / operand2; 
             }
         default:
             printf("Error: Invalid operator.");
-            exit(EXIT_FAILURE);
+            return -1;
     }
 }
 
 
-int precedence(char operator){
+int getPrecedence(char operator){
     if(operator == '+' || operator == '-'){
         return 1;
     }
@@ -38,74 +62,95 @@ int precedence(char operator){
     return 0;
 }
 
+int parseOperand(char *expression, int *index){
+    int currentValue = 0;
+    while(*index < stringLength(expression) && isDigit(expression[*index])){
+        currentValue = currentValue * 10 + (expression[*index] - '0');
+        (*index)++;
+    }
+    return currentValue;
+}
 
-int EvaluateExpression(char *expr){
-    int numbers[SIZE];
-    char operators[SIZE];
-    int nTop = -1, oTop = -1;
-    int answer;
+void applyOperator(char operatorStack[], int *operatorTop, int operandStack[], int *operandTop){
+    char operator = operatorStack[(*operatorTop)--];
+    int operand2 = operandStack[(*operandTop)--];
+    int operand1 = operandStack[(*operandTop)--];
+    int result = evaluateOperator(operator, operand1, operand2);
+    operandStack[++(*operandTop)] = result;
+}
 
-    for(int i = 0; i < strlen(expr); i++){
-        if(isspace(expr[i])){
+void processOperator(char operator, char operatorStack[], int *operatorTop, int operandStack[], int *operandTop, char *expression, int *index){
+    while(*operatorTop != -1 && getPrecedence(operatorStack[*operatorTop]) >= getPrecedence(operator)){
+        applyOperator(operatorStack, operatorTop, operandStack, operandTop);
+    }
+    operatorStack[++(*operatorTop)] = operator;
+    (*index)++;
+}
+
+int evaluateExpression(char *expression){
+    int operandStack[SIZE];
+    char operatorStack[SIZE];
+    int operandTop = -1, operatorTop = -1;
+    int index = 0;
+
+    while(index < stringLength(expression)){
+        if(isSpace(expression[index])){
+            index++;
             continue;
-        } 
-        if(isdigit(expr[i])){
-            int val = 0;
-            while(i < strlen(expr) && isdigit(expr[i])){
-                val = val * 10 + (expr[i] - '0');
-                i++;
-            }
-            i--;
-            numbers[++nTop] = val;
-        } 
-        else if(strchr("+-*/", expr[i])){
-            while(oTop != -1 && precedence(operators[oTop]) >= precedence(expr[i])){
-                
-                int op2= numbers[nTop--]; 
-                int op1= numbers[nTop--]; 
-                char op = operators[oTop--]; 
-                numbers[++nTop] = evaluation(op, op1, op2); 
-            }
-            operators[++oTop] = expr[i]; 
-        } 
+        }
+
+        if(isDigit(expression[index])){
+            int operand = parseOperand(expression, &index);
+            operandStack[++operandTop] = operand;
+        }
+        else if(isOperator(expression[index])){
+            processOperator(expression[index], operatorStack, &operatorTop, operandStack, &operandTop, expression, &index);
+        }
         else{
-            printf("Error: Invalid expression.");
+            printf("Error: Invalid expression.\n");
             return -1;
         }
     }
 
-    while(oTop != -1){
-        int op2= numbers[nTop--]; 
-        int op1= numbers[nTop--]; 
-        char op = operators[oTop--]; 
-        numbers[++nTop] = evaluation(op, op1, op2); 
+    while(operatorTop != -1){
+        applyOperator(operatorStack, &operatorTop, operandStack, &operandTop);
     }
-    
-    answer = numbers[nTop];
-    
-    return answer; 
+
+    return operandStack[operandTop];
 }
 
 int main(){
     char expression[SIZE];
+    int i=0;
 
     printf("Enter a mathematical expression: ");
-    fgets(expression, SIZE, stdin);
-    expression[strcspn(expression, "\n")] = 0; 
+   
+    while(1){
+        char character;
+        scanf("%c", &character);
+        if(character == '\n' || character == '\0'){
+            break;
+        }
+        expression[i++] = character;
+        if(i >= SIZE - 1){
+            break;
+        }
+    }
+    expression[i] = '\0';
     
-    if(strlen(expression) == 0){
+    if(stringLength(expression) == 0){
         printf("Error: Empty expression.");
         return 1;
     }
 
-    for(int i = 0; i < strlen(expression); i++){
-        if(!isdigit(expression[i]) && !strchr("+-*/ ", expression[i])){
+    for(int i = 0; i < stringLength(expression); i++){
+        if(!isDigit(expression[i]) && !isSpace(expression[i]) && !isOperator(expression[i])){
             printf("Error: Invalid expression.");
             return 1;
         }
     }
 
-    int result = EvaluateExpression(expression);
+    int result = evaluateExpression(expression);
     if(result != -1){
         printf("Result: %d", result);
     }
