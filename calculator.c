@@ -1,13 +1,13 @@
 #include <stdio.h>
-#include <stdlib.h>
-
 #define SIZE 100
 
 int stringLength(const char *string){
     int length = 0;
+    
     while(string[length] != '\0'){
         length++;
     }
+    
     return length;
 }
 
@@ -20,77 +20,89 @@ int isSpace(char character){
 }
 
 int isOperator(char character){
-    char operators[] = "+-*/";
-    for(int i = 0; operators[i] != '\0'; i++){
-        if(operators[i] == character){
-            return 1;
-        }
-    }
-    return 0;
+    return(character == '+' || character == '-' || character == '*' || character == '/');
 }
 
-int evaluateOperator(char operator, int operand1, int operand2){
-    switch(operator){
-        case '+':
-            return operand1 + operand2; 
-        case '-': 
-            return operand1 - operand2;
-        case '*': 
-            return operand1 * operand2;
-        case '/':
-            if(operand2 == 0){ 
-                printf("Error: Division by zero.");
-                return -1;
-            }
-            else{
-                return operand1 / operand2; 
-            }
-        default:
-            printf("Error: Invalid operator.");
-            return -1;
+void shiftOperands(int array[], int size, int start){
+    for(int i = start; i < size - 1; i++){
+        array[i] = array[i + 1];
     }
 }
 
-
-int getPrecedence(char operator){
-    if(operator == '+' || operator == '-'){
-        return 1;
+void shiftOperators(char array[], int size, int start){
+    for(int i = start; i < size - 1; i++){
+        array[i] = array[i + 1];
     }
-    if(operator == '*' || operator == '/'){
-        return 2;
-    } 
-    return 0;
 }
 
-int parseOperand(char *expression, int *index){
+int parseOperand(const char *expression, int *index){
     int currentValue = 0;
-    while(*index < stringLength(expression) && isDigit(expression[*index])){
+    
+    while(isDigit(expression[*index])){
         currentValue = currentValue * 10 + (expression[*index] - '0');
         (*index)++;
     }
+    
     return currentValue;
 }
 
-void applyOperator(char operatorStack[], int *operatorTop, int operandStack[], int *operandTop){
-    char operator = operatorStack[(*operatorTop)--];
-    int operand2 = operandStack[(*operandTop)--];
-    int operand1 = operandStack[(*operandTop)--];
-    int result = evaluateOperator(operator, operand1, operand2);
-    operandStack[++(*operandTop)] = result;
-}
-
-void processOperator(char operator, char operatorStack[], int *operatorTop, int operandStack[], int *operandTop, char *expression, int *index){
-    while(*operatorTop != -1 && getPrecedence(operatorStack[*operatorTop]) >= getPrecedence(operator)){
-        applyOperator(operatorStack, operatorTop, operandStack, operandTop);
+int evaluateOperator(char operatorArray[], int *operatorCount, int operandArray[], int *operandCount){
+    for(int i = 0; i < *operatorCount; i++){
+        if(operatorArray[i] == '/'){
+            if(operandArray[i + 1] == 0){
+                printf("Error: Division by zero.\n");
+                return -1;
+            }
+            operandArray[i] = operandArray[i]/ operandArray[i + 1];
+            shiftOperands(operandArray, *operandCount, i + 1);
+            shiftOperators(operatorArray, *operatorCount, i);
+            (*operandCount)--;
+            (*operatorCount)--;
+            i--;
+        }
     }
-    operatorStack[++(*operatorTop)] = operator;
-    (*index)++;
+
+    for(int i = 0; i < *operatorCount; i++){
+        if(operatorArray[i] == '*'){
+            operandArray[i] = operandArray[i] * operandArray[i + 1];
+            shiftOperands(operandArray, *operandCount, i + 1);
+            shiftOperators(operatorArray, *operatorCount, i);
+            (*operandCount)--;
+            (*operatorCount)--;
+            i--;
+        }
+    }
+
+    for(int i = 0; i < *operatorCount; i++){
+        if(operatorArray[i] == '+'){
+            operandArray[i] = operandArray[i] + operandArray[i + 1];
+            shiftOperands(operandArray, *operandCount, i + 1);
+            shiftOperators(operatorArray, *operatorCount, i);
+            (*operandCount)--;
+            (*operatorCount)--;
+            i--;
+        }
+    }
+
+    for(int i = 0; i < *operatorCount; i++){
+        if(operatorArray[i] == '-'){
+            operandArray[i] = operandArray[i] - operandArray[i + 1];
+            shiftOperands(operandArray, *operandCount, i + 1);
+            shiftOperators(operatorArray, *operatorCount, i);
+            (*operandCount)--;
+            (*operatorCount)--;
+            i--;
+        }
+    }
+
+    return operandArray[0];
 }
 
-int evaluateExpression(char *expression){
-    int operandStack[SIZE];
-    char operatorStack[SIZE];
-    int operandTop = -1, operatorTop = -1;
+
+int evaluateExpression(const char *expression){
+    int operandArray[SIZE];
+    char operatorArray[SIZE];
+    int operandCount = 0, operatorCount = 0;
     int index = 0;
 
     while(index < stringLength(expression)){
@@ -100,59 +112,41 @@ int evaluateExpression(char *expression){
         }
 
         if(isDigit(expression[index])){
-            int operand = parseOperand(expression, &index);
-            operandStack[++operandTop] = operand;
-        }
+            operandArray[operandCount++] = parseOperand(expression, &index);
+        } 
         else if(isOperator(expression[index])){
-            processOperator(expression[index], operatorStack, &operatorTop, operandStack, &operandTop, expression, &index);
+            operatorArray[operatorCount++] = expression[index];
+            index++;
         }
         else{
-            printf("Error: Invalid expression.\n");
+            printf("Error: Invalid expression.\n", expression[index]);
             return -1;
         }
     }
-
-    while(operatorTop != -1){
-        applyOperator(operatorStack, &operatorTop, operandStack, &operandTop);
+    
+    if((operandCount != (operatorCount+1)) || operandCount == 0 || operatorCount == 0 ){
+        printf("Error: Invalid Expression.\n");
+        return -1;
     }
-
-    return operandStack[operandTop];
+    
+    return evaluateOperator(operatorArray, &operatorCount, operandArray, &operandCount);
 }
 
-int main(){
+int main() {
     char expression[SIZE];
-    int i=0;
 
     printf("Enter a mathematical expression: ");
-   
-    while(1){
-        char character;
-        scanf("%c", &character);
-        if(character == '\n' || character == '\0'){
-            break;
-        }
-        expression[i++] = character;
-        if(i >= SIZE - 1){
-            break;
-        }
-    }
-    expression[i] = '\0';
-    
-    if(stringLength(expression) == 0){
-        printf("Error: Empty expression.");
+    scanf("%[^\n]", expression);
+
+    if (stringLength(expression) == 0) {
+        printf("Error: Empty expression.\n");
         return 1;
     }
 
-    for(int i = 0; i < stringLength(expression); i++){
-        if(!isDigit(expression[i]) && !isSpace(expression[i]) && !isOperator(expression[i])){
-            printf("Error: Invalid expression.");
-            return 1;
-        }
-    }
-
     int result = evaluateExpression(expression);
-    if(result != -1){
-        printf("Result: %d", result);
+
+    if (result != -1) {
+        printf("Result: %d\n", result);
     }
 
     return 0;
