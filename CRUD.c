@@ -1,209 +1,239 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#define SIZE 50
 
-typedef struct{
+struct User{
     int id;
-    char name[50];
+    char name[SIZE];
     int age;
-}User;
+};
 
-void create(FILE *file){
-    User user;
-    int isUnique = 0;
+void createFileIfNotExists(){
+    FILE *file = fopen("users.txt", "r");
+    if (file == NULL){
+        file = fopen("users.txt", "w");
+        fclose(file);
+    }
+    fclose(file);
+}
 
-    while(!isUnique){
-        isUnique = 1;
+int isIdUnique(int id){
+    FILE *file = fopen("users.txt", "r");
+    if(file == NULL){
+        printf("Error: Could not open users.txt for reading.\n");
+        return 1;
+    }
 
-        printf("Enter User_ID: ");
-        if(scanf("%d", &user.id) != 1){
-            printf("Invalid input. Please enter a valid number.\n");
-            while(getchar() != '\n');
-            isUnique = 0;
+    struct User user;
+    while(fscanf(file, "%d\t\t%[^\t]\t\t%d\n", &user.id, user.name, &user.age) != EOF){
+        if(user.id == id){
+            fclose(file);
+            return 0;
+        }
+    }
+    fclose(file);
+    
+    return 1;
+}
+
+void getUserDetails(struct User *user){
+    int isUnique;
+    int ch;
+    do{
+        printf("Enter ID: ");
+        if(scanf("%d", &user->id) != 1){
+            printf("Error: Please enter a valid integer for ID.\n");
+            while ((ch = getchar()) != '\n' && ch != EOF);
+
             continue;
         }
-
-        User tempUser;
-        fseek(file, 0, SEEK_SET);
-        while(fread(&tempUser, sizeof(User), 1, file)){
-            if(tempUser.id == user.id){
-                printf("ID already exists.\nPlease enter a unique ID.\n");
-                isUnique = 0;
-                break;
-            }
+        isUnique = isIdUnique(user->id);
+        if(!isUnique){
+            printf("Error: ID already exists. Please enter a different ID.\n");
         }
-    }
+        
+    }while(!isUnique);
 
-    getchar();
-    printf("Enter the Name: ");
-    fgets(user.name, sizeof(user.name), stdin);
-    user.name[strcspn(user.name, "\n")] = '\0';
-
-    int validAge = 0;
-    while(!validAge){
+    printf("Enter Name: ");
+    scanf(" %[^\n]%*c",user->name);
+        
+    do{
         printf("Enter Age: ");
-        if(scanf("%d", &user.age) != 1){
-            printf("Invalid input. Please enter a valid number.\n");
-            while (getchar() != '\n');
+        if(scanf("%d", &user->age) != 1){
+            printf("Error: Please enter a valid integer for Age.\n");
+            while ((ch = getchar()) != '\n' && ch != EOF);
+            continue;
         }
-        else if(user.age < 0 || user.age > 120){
-            printf("Please enter a realistic age.\n");
+        if(user->age <= 0 || user->age >= 120){
+            printf("Error: Please enter a valid age.\n");
         }
-        else{
-            validAge = 1;
-        }
+    }while(user->age <= 0 || user->age >= 120);
+}
+
+void createUser(){
+    FILE *file = fopen("users.txt", "a");
+    if(file == NULL){
+        printf("Error: Could not open users.txt for appending.\n");
+        return;
     }
 
-    fseek(file, 0, SEEK_END);
-    fwrite(&user, sizeof(User), 1, file);
-    fflush(file);
+    struct User user;
+
+    getUserDetails(&user);
+
+    fprintf(file, "%d\t\t%s\t\t%d\n", user.id, user.name, user.age);
+
+    fclose(file);
     printf("User added successfully.\n");
 }
 
-void display(FILE *file){
-    User user;
-    fseek(file, 0, SEEK_SET);
+void readUsers(){
+    FILE *file = fopen("users.txt", "r");
+    if(file == NULL){
+        printf("Error: Could not open users.txt for reading.\n");
+        return;
+    }
+
+    struct User user;
 
     printf("\nID\tName\t\tAge\n");
-    printf("------------------------------------\n");
-    while(fread(&user, sizeof(User), 1, file)){
+    while(fscanf(file, "%d\t\t%[^\t]\t\t%d\n", &user.id, user.name, &user.age) != EOF){
         printf("%d\t%s\t\t%d\n", user.id, user.name, user.age);
     }
-}
-
-void update(FILE *file){
-    int id, found = 0;
-    User user;
-    FILE *tempFile = fopen("temp.txt", "wb");
-    if(!tempFile){
-        printf("Error creating temporary file.\n");
-        return;
-    }
-
-    printf("Enter User ID to update: ");
-    scanf("%d", &id);
-
-    fseek(file, 0, SEEK_SET);
-    while(fread(&user, sizeof(User), 1, file)){
-        if(user.id == id){
-            found = 1;
-            printf("Enter new Name: ");
-            getchar();
-            fgets(user.name, sizeof(user.name), stdin);
-            user.name[strcspn(user.name, "\n")] = '\0';
-            printf("Enter new Age: ");
-            scanf("%d", &user.age);
-            printf("User updated successfully\n");
-        }
-        fwrite(&user, sizeof(User), 1, tempFile);
-    }
-
-    fclose(tempFile);
-    if(!found){
-        printf("User ID not found.\n");
-        remove("temp.txt");
-        return;
-    }
 
     fclose(file);
-    remove("users.txt");
-    rename("temp.txt", "users.txt");
-    file = fopen("users.txt", "rb+");
 }
 
-void delete(FILE *file){
-    int id, found = 0;
-    User user;
-    FILE *tempFile = fopen("temp.txt", "wb");
-    if (!tempFile) {
-        printf("Error creating temporary file.\n");
+void updateUser(){
+    int targetId;
+    printf("Enter ID of the user to update: ");
+    scanf("%d", &targetId);
+
+    FILE *file = fopen("users.txt", "r");
+    if(file == NULL){
+        printf("Error: Could not open users.txt for reading.\n");
         return;
     }
 
-    printf("Enter User ID to delete: ");
-    scanf("%d", &id);
+    FILE *tempFile = fopen("temp.txt", "w");
+    if(tempFile == NULL){
+        printf("Error: Could not open temp.txt for writing.\n");
+        fclose(file);
+        return;
+    }
 
-    fseek(file, 0, SEEK_SET);
-    while(fread(&user, sizeof(User), 1, file)){
-        if(user.id != id){
-            fwrite(&user, sizeof(User), 1, tempFile);
+    int recordFound = 0;
+    struct User updatedUser, tempUser;
+
+    while(fscanf(file, "%d\t\t%[^\t]\t\t%d\n", &tempUser.id, tempUser.name, &tempUser.age) != EOF){
+        if(tempUser.id == targetId){
+            recordFound = 1;
+
+            getUserDetails(&updatedUser);
+
+            fprintf(tempFile, "%d\t\t%s\t\t%d\n", updatedUser.id, updatedUser.name, updatedUser.age);
         } 
         else{
-            found = 1;
+            fprintf(tempFile, "%d\t\t%s\t\t%d\n", tempUser.id, tempUser.name, tempUser.age);
         }
-    }
-
-    fclose(tempFile);
-    if(!found){
-        printf("User ID not found.\n");
-        remove("temp.txt");
-        return;
     }
 
     fclose(file);
+    fclose(tempFile);
+
     remove("users.txt");
     rename("temp.txt", "users.txt");
-    file = fopen("users.txt", "rb+");
-    printf("User deleted successfully!\n");
+
+    if(recordFound){
+        printf("User details updated successfully.\n");
+    }else{
+        printf("Record with ID %d not found.\n", targetId);
+    }
 }
 
-FILE *initializeFile(){
-    FILE *file = fopen("users.txt", "rb+");
-    if(!file){
-        file = fopen("users.txt", "wb+");
-        if(!file){
-            printf("Error creating file.\n");
-            exit(1);
+void deleteUser(){
+    int targetId;
+    printf("Enter ID of the user to delete: ");
+    scanf("%d", &targetId);
+
+    FILE *file = fopen("users.txt", "r");
+    if(file == NULL){
+        printf("Error: Could not open users.txt for reading.\n");
+        return;
+    }
+
+    FILE *tempFile = fopen("temp.txt", "w");
+    if(tempFile == NULL){
+        printf("Error: Could not open temp.txt for writing.\n");
+        fclose(file);
+        return;
+    }
+
+    struct User user;
+    int recordFound = 0;
+
+    while(fscanf(file, "%d\t\t%[^\t]\t\t%d\n", &user.id, user.name, &user.age) != EOF){
+        if(user.id != targetId){
+            fprintf(tempFile, "%d\t\t%s\t\t%d\n", user.id, user.name, user.age);
+        }
+        else{
+            recordFound = 1;
         }
     }
-    return file;
+
+    fclose(file);
+    fclose(tempFile);
+
+    remove("users.txt");
+    rename("temp.txt", "users.txt");
+
+
+    if(recordFound){        
+        printf("User with ID %d deleted successfully.\n", targetId);
+    } else {
+        printf("User with ID %d not found.\n", targetId);
+    }
 }
 
 int main(){
-    FILE *file = fopen("users.txt", "a+");
-    if(file == NULL){
-        file = fopen("users.txt", "w+");
-        if(file == NULL){
-            printf("Error: Unable to open file.\n");
-            return 1;
-        }
-    }
-
     int choice;
-    do{
-        printf("\n1. Create User\n2. Display Users\n3. Update User\n4. Delete User\n5. Exit\n");
-        printf("Enter your choice: ");
 
-        if(scanf("%d", &choice) != 1){
-            printf("Invalid input. Please enter a valid choice.\n");
-            while(getchar() != '\n'); 
-            choice = -1;  
-            continue;
-        }
+    createFileIfNotExists();
+
+    do{
+        printf("\nMenu:\n");
+        printf("1. Create User\n");
+        printf("2. Read Users\n");
+        printf("3. Update User\n");
+        printf("4. Delete User\n");
+        printf("5. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
 
         switch(choice){
             case 1:
-                create(file);
+                createUser();
                 break;
-            case 2:
-                display(file);
-                break;
-            case 3:
-                update(file);
-                break;
-            case 4:
-                delete(file);
-                break;
-            case 5:
-                printf("Exiting...\n");
-                break;
-            default:
-                printf("Invalid choice. please try again.\n");
-        }
-    } 
-    while(choice != 5);
 
-    fclose(file);
+            case 2:
+                readUsers();
+                break;
+
+            case 3:
+                updateUser();
+                break;
+
+            case 4:
+                deleteUser();
+                break;
+
+            case 5:
+                printf("Exiting the program.\n");
+                break;
+
+            default:
+                printf("Invalid choice! Please try again.\n");
+        }
+    }while(choice != 5);
+
     return 0;
 }
-
