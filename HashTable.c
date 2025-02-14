@@ -100,6 +100,18 @@ void display(HashMap* hashMap){
     printf("\n");
 }
 
+void freeHashMap(HashMap* hashMap){
+    for(int i = 0; i < TABLE_SIZE; i++){
+        Node* current = hashMap->table[i];
+        while(current != NULL){
+            Node* temp = current;
+            current = current->next;
+            free(temp);
+        }
+    }
+}
+
+
 int main(){
     HashMap hashMap;
     init(&hashMap);
@@ -144,6 +156,7 @@ int main(){
 
             case 5:
                 printf("Exiting program.\n");
+                freeHashMap(&hashMap);
                 return 0;
 
             default:
